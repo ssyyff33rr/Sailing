@@ -17,7 +17,7 @@ namespace Sailing;
 public class Sailing : BaseUnityPlugin
 {
 	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.1";
+	private const string ModVersion = "1.1.2";
 	private const string ModGUID = "org.bepinex.plugins.sailing";
 
 	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -54,6 +54,8 @@ public class Sailing : BaseUnityPlugin
 	{
 		[UsedImplicitly] public bool? ShowRangeAsPercent;
 		[UsedImplicitly] public int? Order;
+		[UsedImplicitly] public string? Description;
+		[UsedImplicitly] public string? DispName;
 	}
 
 	private static Skill sailing = null!;
@@ -129,7 +131,7 @@ public class Sailing : BaseUnityPlugin
 		Regex regex = new("['[\"\\]]");
 
 		List<string> shipOrder = new() { "$ship_longship", "$ship_karve", "$ship_raft" };
-		foreach (Ship ship in prefabs.Select(p => p.GetComponent<Ship>()).Where(s => s != null).OrderByDescending(s => shipOrder.IndexOf(s.GetComponent<Piece>().m_name)))
+		foreach (Ship ship in prefabs.Select(p => p.GetComponent<Ship>()).Where(s => s?.GetComponent<Piece>() != null).OrderByDescending(s => shipOrder.IndexOf(s.GetComponent<Piece>().m_name)))
 		{
 			int order = -shipSpeedIncrease.Count * 4;
 
@@ -137,13 +139,13 @@ public class Sailing : BaseUnityPlugin
 
 			if (shipSpeedIncrease.ContainsKey(pieceName))
 			{
-				return;
+				continue;
 			}
 
-			shipSpeedIncrease[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Speed Factor", 1.5f, new ConfigDescription($"Speed factor for {english.Localize(pieceName)} at skill level 100.", new AcceptableValueRange<float>(1f, 3f), new ConfigurationManagerAttributes { Order = --order }));
-			shipPaddleRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Paddle Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to paddle a {english.Localize(pieceName)}.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false }));
-			shipHalfRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Half Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with reduced sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false }));
-			shipFullRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Full Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with full sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false }));
+			shipSpeedIncrease[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Speed Factor", 1.5f, new ConfigDescription($"Speed factor for {english.Localize(pieceName)} at skill level 100.", new AcceptableValueRange<float>(1f, 3f), new ConfigurationManagerAttributes { Order = --order, DispName = $"{Localization.instance.Localize(pieceName)} Speed Factor", Description = $"Speed factor for {Localization.instance.Localize(pieceName)} at skill level 100." }));
+			shipPaddleRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Paddle Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to paddle a {english.Localize(pieceName)}.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Paddle Requirement", Description = $"Required sailing skill level to be able to paddle a {Localization.instance.Localize(pieceName)}." }));
+			shipHalfRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Half Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with reduced sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Half Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with reduced sail." }));
+			shipFullRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Full Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with full sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Full Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with full sail." }));
 		}
 	}
 
