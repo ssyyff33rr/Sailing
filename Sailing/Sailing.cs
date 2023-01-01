@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -17,7 +18,7 @@ namespace Sailing;
 public class Sailing : BaseUnityPlugin
 {
 	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.4";
+	private const string ModVersion = "1.1.5";
 	private const string ModGUID = "org.bepinex.plugins.sailing";
 
 	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -26,6 +27,10 @@ public class Sailing : BaseUnityPlugin
 	private static ConfigEntry<float> explorationRadiusIncrease = null!;
 	private static ConfigEntry<float> shipHealthIncrease = null!;
 	private static ConfigEntry<float> experienceGainedFactor = null!;
+	private static ConfigEntry<int> experienceLoss = null!;
+	private static ConfigEntry<KeyboardShortcut> shipNudgeModifierkey = null!;
+	private static ConfigEntry<Toggle> allowShipNudge = null!;
+	private static ConfigEntry<float> nudgeForce = null!;
 
 	private static readonly Dictionary<string, ConfigEntry<float>> shipSpeedIncrease = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> shipPaddleRequirement = new();
@@ -72,11 +77,17 @@ public class Sailing : BaseUnityPlugin
 
 		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
 		configSync.AddLockingConfigEntry(serverConfigLocked);
+		shipNudgeModifierkey = config("1 - General", "Ship Nudge Modifier Key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Modifier key to hold, to nudge your ship. Clear value to disable this."), false);
 		explorationRadiusIncrease = config("3 - Other", "Exploration Radius Factor", 5f, new ConfigDescription("Exploration radius factor while on ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
 		shipHealthIncrease = config("3 - Other", "Ship Health Factor", 2f, new ConfigDescription("Health factor for ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
 		experienceGainedFactor = config("3 - Other", "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the sailing skill.", new AcceptableValueRange<float>(0.01f, 5f)));
 		experienceGainedFactor.SettingChanged += (_, _) => sailing.SkillGainFactor = experienceGainedFactor.Value;
 		sailing.SkillGainFactor = experienceGainedFactor.Value;
+		experienceLoss = config("3 - Other", "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the sailing skill on death.", new AcceptableValueRange<int>(0, 100)));
+		experienceLoss.SettingChanged += (_, _) => sailing.SkillLoss = experienceLoss.Value;
+		sailing.SkillLoss = experienceLoss.Value;
+		allowShipNudge = config("3 - Other", "Allow Ship Nudge", Toggle.On, new ConfigDescription("If on, players can press a hotkey, to give their ship a nudge, if it is stuck."));
+		nudgeForce = config("3 - Other", "Ship Nudge Force", 10f, new ConfigDescription("Impulse force for ship nudge."));
 
 		Assembly assembly = Assembly.GetExecutingAssembly();
 		Harmony harmony = new(ModGUID);
@@ -149,6 +160,59 @@ public class Sailing : BaseUnityPlugin
 		}
 	}
 
+	[HarmonyPatch(typeof(Ladder), nameof(Ladder.Interact))]
+	private static class NudgeShip
+	{
+		private static DateTime lastNudge = DateTime.UtcNow;
+
+		private static bool Prefix(Ladder __instance)
+		{
+			if (allowShipNudge.Value == Toggle.Off)
+			{
+				return true;
+			}
+
+			if (Input.GetKey(shipNudgeModifierkey.Value.MainKey) && shipNudgeModifierkey.Value.Modifiers.All(Input.GetKey))
+			{
+				if ((DateTime.UtcNow - lastNudge).TotalSeconds < 1)
+				{
+					return false;
+				}
+
+				lastNudge = DateTime.UtcNow;
+
+				Rigidbody ship = __instance.GetComponentInParent<Rigidbody>();
+				if (Math.Abs(Vector3.SignedAngle(ship.transform.position - Player.m_localPlayer.transform.position, Player.m_localPlayer.transform.forward, Player.m_localPlayer.transform.up)) < 90)
+				{
+					ship.AddForce(Player.m_localPlayer.transform.forward * ship.mass * nudgeForce.Value, ForceMode.Impulse);
+					Debug.Log("Nudge");
+				}
+				else
+				{
+					Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Please don't nudge your ship with your butt.");
+				}
+
+				return false;
+			}
+
+			return true;
+		}
+	}
+
+	[HarmonyPatch(typeof(Ladder), nameof(Ladder.GetHoverText))]
+	private class OverrideHoverText
+	{
+		public static void Postfix(ref string __result)
+		{
+			if (allowShipNudge.Value == Toggle.Off)
+			{
+				return;
+			}
+
+			__result += Localization.instance.Localize($"\n[<b><color=yellow>{shipNudgeModifierkey.Value}</color> + <color=yellow>$KEY_Use</color></b>] Push ship");
+		}
+	}
+
 	[HarmonyPatch(typeof(WearNTear), nameof(WearNTear.Awake))]
 	private class IncreaseHealth
 	{
@@ -199,7 +263,7 @@ public class Sailing : BaseUnityPlugin
 					timer.UpdateDelta += Time.fixedTime - timer.lastUpdate;
 					if (timer.UpdateDelta > 1)
 					{
-						sailor.m_nview.InvokeRPC("Sailing Skill Increase", 1);
+						sailor.m_nview.InvokeRPC("Sailing Skill Increase", 0.5f);
 						timer.UpdateDelta -= 1;
 					}
 				}
@@ -251,7 +315,7 @@ public class Sailing : BaseUnityPlugin
 	{
 		private static void Postfix(Player __instance)
 		{
-			__instance.m_nview.Register("Sailing Skill Increase", (long _, int amount) => __instance.RaiseSkill("Sailing", amount));
+			__instance.m_nview.Register("Sailing Skill Increase", (long _, float amount) => __instance.RaiseSkill("Sailing", amount));
 		}
 	}
 
