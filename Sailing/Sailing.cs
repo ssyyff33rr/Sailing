@@ -15,10 +15,11 @@ using UnityEngine;
 namespace Sailing;
 
 [BepInPlugin(ModGUID, ModName, ModVersion)]
+[BepInIncompatibility("org.bepinex.plugins.valheim_plus")]
 public class Sailing : BaseUnityPlugin
 {
 	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.5";
+	private const string ModVersion = "1.1.6";
 	private const string ModGUID = "org.bepinex.plugins.sailing";
 
 	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -167,7 +168,7 @@ public class Sailing : BaseUnityPlugin
 
 		private static bool Prefix(Ladder __instance)
 		{
-			if (allowShipNudge.Value == Toggle.Off)
+			if (allowShipNudge.Value == Toggle.Off || Player.m_localPlayer.IsSwimming())
 			{
 				return true;
 			}
@@ -185,7 +186,6 @@ public class Sailing : BaseUnityPlugin
 				if (Math.Abs(Vector3.SignedAngle(ship.transform.position - Player.m_localPlayer.transform.position, Player.m_localPlayer.transform.forward, Player.m_localPlayer.transform.up)) < 90)
 				{
 					ship.AddForce(Player.m_localPlayer.transform.forward * ship.mass * nudgeForce.Value, ForceMode.Impulse);
-					Debug.Log("Nudge");
 				}
 				else
 				{
@@ -251,7 +251,7 @@ public class Sailing : BaseUnityPlugin
 		private static void Postfix(Ship __instance, ref Vector3 __result)
 		{
 			Timer timer = timers.GetOrCreateValue(__instance);
-			if (Player.m_players.FirstOrDefault(p => p.GetZDOID() == __instance.m_shipControlls.GetUser()) is { } sailor)
+			if (Player.s_players.FirstOrDefault(p => p.GetPlayerID() == __instance.m_shipControlls.GetUser()) is { } sailor)
 			{
 				if (shipSpeedIncrease.TryGetValue(__instance.GetComponent<Piece>().m_name, out ConfigEntry<float> speedIncrease))
 				{
