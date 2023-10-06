@@ -19,7 +19,7 @@ namespace Sailing;
 public class Sailing : BaseUnityPlugin
 {
 	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.6";
+	private const string ModVersion = "1.1.7";
 	private const string ModGUID = "org.bepinex.plugins.sailing";
 
 	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -53,7 +53,7 @@ public class Sailing : BaseUnityPlugin
 	private enum Toggle
 	{
 		On = 1,
-		Off = 0
+		Off = 0,
 	}
 
 	private class ConfigurationManagerAttributes
@@ -73,7 +73,7 @@ public class Sailing : BaseUnityPlugin
 		sailing = new Skill("Sailing", "sailing.png");
 		sailing.Description.English("Increases the health of ships built by you, sailing speed of ships commanded by you and your exploration radius while on a ship.");
 		sailing.Name.German("Segeln");
-		sailing.Description.German("Erhöht die Lebenspunkte von dir gebauter Schiffe, erhöht die Geschwindigkeiten von Schiffen, die du steuerst und erhöht deinen Erkundungsradius, wenn du dich auf einem Schiff befindest.");
+		sailing.Description.German("Erhöht die Lebenspunkte von dir gebauter Schiffe, erhöht die Geschwindigkeit von Schiffen, die du steuerst und erhöht deinen Erkundungsradius, wenn du dich auf einem Schiff befindest.");
 		sailing.Configurable = false;
 
 		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
@@ -204,7 +204,7 @@ public class Sailing : BaseUnityPlugin
 	{
 		public static void Postfix(ref string __result)
 		{
-			if (allowShipNudge.Value == Toggle.Off)
+			if (allowShipNudge.Value == Toggle.Off || Player.m_localPlayer.IsSwimming())
 			{
 				return;
 			}
